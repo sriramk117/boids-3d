@@ -1,20 +1,27 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 100000 );
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
 renderer.setAnimationLoop( animate );
 document.body.appendChild( renderer.domElement );
 
+const controls = new OrbitControls( camera, renderer.domElement );
+
 camera.position.z = 5;
+controls.update();
 
 const boids = [];
 var num_boids = 50;
-var x_bound = 0;
-var y_bound = 0;
-var z_bound = 0;
+var separation = 0.3;
+var lim_v = new THREE.Vector3(0.07, 0.07, 0.07);
+var visual_range = 0.8;
+var x_bound = 5;
+var y_bound = 5;
+var z_bound = 5;
 
 class Boid {
     constructor(geometry, material) {
@@ -26,7 +33,7 @@ class Boid {
 
 // Initialize the positions of the boids
 var geometry = new THREE.SphereGeometry( 0.05, 32, 16 );
-var material = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
+var material = new THREE.MeshBasicMaterial( { color: 0xaed6f1 } );
 
 // Create boids
 for (let i = 0; i < num_boids; i++) {
@@ -39,15 +46,16 @@ initialize_positions();
 function animate() {
     draw_boids();
     update_boids();
+    controls.update();
 	renderer.render( scene, camera );
 }
 
 function initialize_positions() {
     // Initialize the positions of the boids
     for (var i = 0; i < num_boids; i++) {
-        boids[i].position.x = x_bound + (Math.random() * 2 - 1) * 5;
-        boids[i].position.y = y_bound + (Math.random() * 2 - 1) * 5;
-        boids[i].position.z = z_bound + (Math.random() * 2 - 1) * 5;
+        boids[i].position.x = (Math.random() * 2 - 1) * 5;
+        boids[i].position.y = (Math.random() * 2 - 1) * 5;
+        boids[i].position.z = (Math.random() * 2 - 1) * 5;
     }
 }
 
@@ -58,30 +66,30 @@ function draw_boids() {
     });
 }
 
-function rule1(b)  {
+function rule1(j)  {
    // Rule 1: Boids try to fly towards the centre of mass of neighbouring boids 
    // calculate the center of mass 
    var center_of_mass = new THREE.Vector3();
 
    for (let i = 0; i < num_boids; i++) {
-       if (b != boids[i]) {
+       if (j != i) {
            center_of_mass.add(boids[i].position);
        }
    }
 
    center_of_mass.divideScalar(num_boids - 1);
 
-   return (center_of_mass.sub(b.position)).divideScalar(100); 
+   return (center_of_mass.sub(boids[j].position)).divideScalar(100); 
 }
 
-function rule2(b) {
+function rule2(j) {
     // Rule 2: Boids try to keep a small distance away from other objects (including other boids)
     var displacement = new THREE.Vector3();
     var dist = new THREE.Vector3();
 
     for (let i = 0; i < num_boids; i++) {
-        if (boids[i] != b && boids[i].position.distanceTo(b.position) < 0.1) {
-            dist.subVectors(boids[i].position, b.position);
+        if (j != i && boids[i].position.distanceTo(boids[j].position) < separation) {
+            dist.subVectors(boids[i].position, boids[j].position);
             displacement.sub(dist);
         }
     }
@@ -89,20 +97,50 @@ function rule2(b) {
     return displacement;
 }
 
-function rule3(b) {
+function rule3(j) {
     // Rule 3: Boids try to match velocity with near boids
     var avg_velocity = new THREE.Vector3();
 
     for (let i = 0; i < num_boids; i++) {
-        if (b != boids[i]) {
+        if (j != i && boids[i].position.distanceTo(boids[j].position) < visual_range) {
             avg_velocity.add(boids[i].velocity);
         }
     }
 
     avg_velocity.divideScalar(num_boids - 1);
-    avg_velocity.sub(b.velocity);
+    avg_velocity.sub(boids[j].velocity);
     return avg_velocity.divideScalar(8);
 
+}
+
+function bound(j) {
+    var limiter = new THREE.Vector3();
+    var limiter_constant = 0.05; 
+    if (boids[j].position.x > x_bound) {
+        limiter.x = -limiter_constant;
+    } else if (boids[j].position.x < -x_bound) {
+        limiter.x = limiter_constant;
+    }
+    if (boids[j].position.y > y_bound) {
+        limiter.y = -limiter_constant;
+    } else if (boids[j].position.y < -y_bound) {
+        limiter.y = limiter_constant;
+    }
+    if (boids[j].position.z > z_bound) {
+        limiter.z = limiter_constant;
+    } else if (boids[j].position.z < -z_bound) {
+        limiter.z = limiter_constant;
+    }
+
+    return limiter;
+}
+
+function limit_velocity(j) {
+    // Limit the velocity of the boids
+    if (boids[j].velocity.length() > lim_v.length()) {
+        boids[j].velocity.divideScalar(boids[j].velocity.length());
+        boids[j].velocity.multiplyScalar(lim_v.length());
+    }
 }
 
 function update_boids() {
@@ -110,17 +148,19 @@ function update_boids() {
     var v1;
     var v2;
     var v3;
-    var b;
+    var v4;
 
     for (let i = 0; i < num_boids; i++) {
-        b = boids[i];
-        v1 = rule1(b);
-        v2 = rule2(b);
-        v3 = rule3(b);
+        v1 = rule1(i);
+        v2 = rule2(i);
+        v3 = rule3(i);
+        v4 = bound(i);
 
         boids[i].velocity.add(v1);
         boids[i].velocity.add(v2);
         boids[i].velocity.add(v3);
+        boids[i].velocity.add(v4);
+        limit_velocity(i);
 
         boids[i].position.add(boids[i].velocity);
     }
