@@ -15,10 +15,10 @@ camera.position.z = 5;
 controls.update();
 
 const boids = [];
-var num_boids = 100;
+var num_boids = 1000;
 var separation = 0.5;
 var lim_v = new THREE.Vector3(0.07, 0.07, 0.07);
-var visual_range = 0.8;
+var visual_range = 1; //2.5
 var x_bound = 5;
 var y_bound = 5;
 var z_bound = 5;
@@ -69,17 +69,23 @@ function draw_boids() {
 function rule1(j)  {
    // Rule 1: Boids try to fly towards the centre of mass of neighbouring boids 
    // calculate the center of mass 
+   var factor = 0.005;
    var center_of_mass = new THREE.Vector3();
+   var neighbours = 0;
 
    for (let i = 0; i < num_boids; i++) {
-       if (j != i) {
+       if (j != i && boids[i].position.distanceTo(boids[j].position) < visual_range) {
            center_of_mass.add(boids[i].position);
+           neighbours++;
        }
    }
 
-   center_of_mass.divideScalar(num_boids - 1);
+   if (neighbours == 0) {
+       return new THREE.Vector3();
+   }
+   center_of_mass.divideScalar(neighbours);
 
-   return (center_of_mass.sub(boids[j].position)).divideScalar(100); 
+   return (center_of_mass.sub(boids[j].position)).multiplyScalar(factor); 
 }
 
 function rule2(j) {
