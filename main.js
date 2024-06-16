@@ -15,7 +15,7 @@ camera.position.z = 5;
 controls.update();
 
 const boids = [];
-var num_boids = 1000;
+var num_boids = 400;
 var separation = 0.5;
 var lim_v = new THREE.Vector3(0.07, 0.07, 0.07);
 var visual_range = 1; //2.5
