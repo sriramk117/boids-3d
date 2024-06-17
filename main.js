@@ -206,9 +206,12 @@ function updateBoids() {
 
 function drawBoundingBox() {
     // Draw the bounding box of the scene
-    var geometry = new THREE.BoxGeometry( xBound * 2, yBound * 2, zBound * 2);
-    var material = new THREE.MeshBasicMaterial( {color: 0xffffff, wireframe: true} );
-    var cube = new THREE.Mesh( geometry, material );
+    const geometry = new THREE.BoxGeometry( xBound * 2, yBound * 2, zBound * 2);
+    const edgesGeometry = new THREE.EdgesGeometry( geometry );
+    const material = new THREE.LineBasicMaterial( { color: 0xffffff } );
+    const cube = new THREE.LineSegments( edgesGeometry, material );
+    //var material = new THREE.MeshBasicMaterial( {color: 0xffffff, transparent: true} );
+    //var cube = new THREE.Mesh( geometry, material );
     scene.add( cube );
 }
 
