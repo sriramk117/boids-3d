@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import InteractiveControls from './InteractiveControls.js';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 100000 );
@@ -14,14 +15,21 @@ const controls = new OrbitControls( camera, renderer.domElement );
 camera.position.z = 5;
 controls.update();
 
-const boids = [];
-var num_boids = 400;
-var separation = 0.5;
-var lim_v = new THREE.Vector3(0.07, 0.07, 0.07);
-var visual_range = 1; //2.5
-var x_bound = 5;
-var y_bound = 5;
-var z_bound = 5;
+var boids = [];
+var numBoids = 500;
+var prevNumBoids = -1;
+var limV = 0.15;
+var visualRange = 1; 
+var xBound = 5;
+var yBound = 5;
+var zBound = 5;
+var cohesionScalar = 0.005;
+var separationScalar = 0.05;
+var alignmentScalar = 0.15;
+var boundingBox = false;
+
+const guiControls = new InteractiveControls(0.005, 0.2, 0.15, 1, 0.15);
+guiControls.init();
 
 class Boid {
     constructor(geometry, material) {
@@ -35,31 +43,54 @@ class Boid {
 var geometry = new THREE.SphereGeometry( 0.05, 32, 16 );
 var material = new THREE.MeshBasicMaterial( { color: 0xaed6f1 } );
 
-// Create boids
-for (let i = 0; i < num_boids; i++) {
-    boids.push(new Boid( geometry , material ));
-    scene.add(boids[i].mesh);
+function init() {
+    // Create boids
+    boids = [];
+    for (let i = 0; i < numBoids; i++) {
+        boids.push(new Boid( geometry , material ));
+        scene.add(boids[i].mesh);
+    }
+
+    // Initialize the positions of the boids
+    initializePositions();
 }
 
-initialize_positions();
+init();
 
 function animate() {
-    draw_boids();
-    update_boids();
+    drawBoids();
+    updateData();
+    if (boundingBox) {
+        drawBoundingBox();
+    } else {
+        removeBoundingBox();
+    }
+    updateBoids();
     controls.update();
 	renderer.render( scene, camera );
 }
 
-function initialize_positions() {
+function initializePositions() {
     // Initialize the positions of the boids
-    for (var i = 0; i < num_boids; i++) {
+    for (var i = 0; i < numBoids; i++) {
         boids[i].position.x = (Math.random() * 2 - 1) * 10;
         boids[i].position.y = (Math.random() * 2 - 1) * 10;
         boids[i].position.z = (Math.random() * 2 - 1) * 10;
     }
 }
 
-function draw_boids() {
+function updateData() {
+    //numBoids = guiControls.getNumBoids();
+    cohesionScalar = guiControls.getCohesionScalar();
+    separationScalar = guiControls.getSeparationScalar();
+    alignmentScalar = guiControls.getAlignmentScalar();
+    visualRange = guiControls.getVisualRange();
+    limV = guiControls.getLimV();
+    boundingBox = guiControls.boundingBox;
+    //guiControls.getStats().update();
+}
+
+function drawBoids() {
     // Update the positions of the boids in the scene
     boids.forEach(boid => {
         boid.mesh.position.set(boid.position.x, boid.position.y, boid.position.z);
@@ -69,12 +100,11 @@ function draw_boids() {
 function rule1(j)  {
    // Rule 1: Boids try to fly towards the centre of mass of neighbouring boids 
    // calculate the center of mass 
-   var factor = 0.005;
    var center_of_mass = new THREE.Vector3();
    var neighbours = 0;
 
-   for (let i = 0; i < num_boids; i++) {
-       if (j != i && boids[i].position.distanceTo(boids[j].position) < visual_range) {
+   for (let i = 0; i < numBoids; i++) {
+       if (j != i && boids[i].position.distanceTo(boids[j].position) < visualRange) {
            center_of_mass.add(boids[i].position);
            neighbours++;
        }
@@ -85,33 +115,32 @@ function rule1(j)  {
    }
    center_of_mass.divideScalar(neighbours);
 
-   return (center_of_mass.sub(boids[j].position)).multiplyScalar(factor); 
+   return (center_of_mass.sub(boids[j].position)).multiplyScalar(cohesionScalar); 
 }
 
 function rule2(j) {
     // Rule 2: Boids try to keep a small distance away from other objects (including other boids)
-    var factor = 0.05;
+    var separation = 0.5;
     var displacement = new THREE.Vector3();
     var dist = new THREE.Vector3();
 
-    for (let i = 0; i < num_boids; i++) {
+    for (let i = 0; i < numBoids; i++) {
         if (j != i && boids[i].position.distanceTo(boids[j].position) < separation) {
             dist.subVectors(boids[j].position, boids[i].position);
             displacement.add(dist);
         }
     }
 
-    return displacement.multiplyScalar(factor);
+    return displacement.multiplyScalar(separationScalar);
 }
 
 function rule3(j) {
     // Rule 3: Boids try to match velocity with near boids
-    var factor = 0.125;
     var avg_velocity = new THREE.Vector3();
     var neighbours = 0;
 
-    for (let i = 0; i < num_boids; i++) {
-        if (j != i && boids[i].position.distanceTo(boids[j].position) < visual_range) {
+    for (let i = 0; i < numBoids; i++) {
+        if (j != i && boids[i].position.distanceTo(boids[j].position) < visualRange) {
             avg_velocity.add(boids[i].velocity);
             neighbours++;
         }
@@ -121,55 +150,71 @@ function rule3(j) {
     }
     avg_velocity.divideScalar(neighbours);
     avg_velocity.sub(boids[j].velocity);
-    return avg_velocity.multiplyScalar(factor);
+    return avg_velocity.multiplyScalar(alignmentScalar);
 
 }
 
 function bound(j) {
+    // Align velocity of boids so they try to stay within the bounds of the scene 
     var limiter = new THREE.Vector3();
-    var limiter_constant = 0.02; 
-    if (boids[j].position.x > x_bound) {
-        limiter.x = -limiter_constant;
-    } else if (boids[j].position.x < -x_bound) {
-        limiter.x = limiter_constant;
+    var bounce = 0.01; 
+    if (boids[j].position.x > xBound) {
+        limiter.x = -bounce;
+    } else if (boids[j].position.x < -xBound) {
+        limiter.x = bounce;
     }
-    if (boids[j].position.y > y_bound) {
-        limiter.y = -limiter_constant;
-    } else if (boids[j].position.y < -y_bound) {
-        limiter.y = limiter_constant;
+    if (boids[j].position.y > yBound) {
+        limiter.y = -bounce;
+    } else if (boids[j].position.y < -yBound) {
+        limiter.y = bounce;
     }
-    if (boids[j].position.z > z_bound) {
-        limiter.z = -limiter_constant;
-    } else if (boids[j].position.z < -z_bound) {
-        limiter.z = limiter_constant;
+    if (boids[j].position.z > zBound) {
+        limiter.z = -bounce;
+    } else if (boids[j].position.z < -zBound) {
+        limiter.z = bounce;
     }
 
     return limiter;
 }
 
-function limit_velocity(j) {
-    // Limit the velocity of the boids
-    if (boids[j].velocity.length() > lim_v.length()) {
-        boids[j].velocity.divideScalar(boids[j].velocity.length());
-        boids[j].velocity.multiplyScalar(lim_v.length());
+function limitSpeed(j) {
+    // Limit the speed of the boids
+    if (boids[j].velocity.length() > limV) {
+        boids[j].velocity.divideScalar( boids[j].velocity.length() );
+        boids[j].velocity.multiplyScalar( limV );
     }
 }
 
-function update_boids() {
+function updateBoids() {
     // Update the positions of the boids
     var v1;
     var v2;
     var v3;
     var v4;
 
-    for (let i = 0; i < num_boids; i++) {
+    for (let i = 0; i < numBoids; i++) {
         v1 = rule1(i); boids[i].velocity.add(v1);
         v2 = rule2(i); boids[i].velocity.add(v2);
         v3 = rule3(i); boids[i].velocity.add(v3);
         v4 = bound(i); boids[i].velocity.add(v4);
 
-        limit_velocity(i);
+        limitSpeed(i);
 
         boids[i].position.add(boids[i].velocity);
+    }
+}
+
+function drawBoundingBox() {
+    // Draw the bounding box of the scene
+    var geometry = new THREE.BoxGeometry( xBound * 2, yBound * 2, zBound * 2);
+    var material = new THREE.MeshBasicMaterial( {color: 0xffffff, wireframe: true} );
+    var cube = new THREE.Mesh( geometry, material );
+    scene.add( cube );
+}
+
+function removeBoundingBox() {
+    // Remove the bounding box of the scene
+    if (scene.children.length > numBoids) {
+        scene.remove(scene.children[scene.children.length - 1]);
     }
 }
