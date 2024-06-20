@@ -16,7 +16,7 @@ camera.position.z = 5;
 controls.update();
 
 var boids = [];
-var numBoids = 500;
+var numBoids = 10;
 var prevNumBoids = -1;
 var limV = 0.15;
 var visualRange = 1; 
@@ -210,8 +210,6 @@ function drawBoundingBox() {
     const edgesGeometry = new THREE.EdgesGeometry( geometry );
     const material = new THREE.LineBasicMaterial( { color: 0xffffff } );
     const cube = new THREE.LineSegments( edgesGeometry, material );
-    //var material = new THREE.MeshBasicMaterial( {color: 0xffffff, transparent: true} );
-    //var cube = new THREE.Mesh( geometry, material );
     scene.add( cube );
 }
 
