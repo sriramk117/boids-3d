@@ -16,7 +16,7 @@ camera.position.z = 5;
 controls.update();
 
 var boids = [];
-var numBoids = 10;
+var numBoids = 500;
 var prevNumBoids = -1;
 var limV = 0.15;
 var visualRange = 1; 
