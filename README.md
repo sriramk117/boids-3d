@@ -1,7 +1,7 @@
 # 3D Simulation of Boids 
 This is a 3D simulation of the boids algorithm - a mathematical program that attempts to replicate the flocking behavior of crows. This demonstration closely follows Conrad Parker's pseudocode explanation of boids algorithm ([link here](http://www.kfish.org/boids/pseudocode.html#ref1)) and Craig Reynold's [description of the algorithm](https://www.red3d.com/cwr/boids/). 
 
-The simulation was made using the Three.js framework to render an interactive and appealing 3D atmosphere for the algorithm. I wrote this completely using Javascript, HTML, and CSS.
+The simulation was made using the Three.js framework to render an interactive and appealing 3D atmosphere for the algorithm. I wrote this completely using HTML and CSS styling.
 
 ## Algorithm Overview + Controls Guide
 In general, the algorithm simulates flocking behaviors by controlling the velocity of individual boids (each boid resembles a single bird) using information from the other boids in the flock. This allows for overarching control over the interactions between the boids giving us this flock movement. The algorithm follows three rules: 
