@@ -15,7 +15,20 @@ You can also control the **visual range** of the boids by playing around with th
 
 Finally, there is a slider to control the **maximum speed** (magnitude of the velocity vector) the boids can fly at and a control to visualize the **bounding box** that the boids try to stay inside of. You'll see that the boids can often fly outside of the bounding box - this was to create a smoother and more life-like simulation of the boids as a stricter bound would lead to boids bouncing on the bounding box's walls. 
 
-## Website 
+## Running Simulation
 I recommend zooming out to see a full view of the flock and experimenting with the GUI controls. Enjoy!
 
-Published Website: Coming soon...
+### Steps to run simulation 
+Assuming you already have the repository installed locally...
+Download necessary tools/dependencies:
+```
+# three.js
+npm install --save three
+
+# vite
+npm install --save-dev vite
+```
+Run simulation:
+```
+npx vite
+```
